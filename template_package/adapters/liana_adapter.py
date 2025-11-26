@@ -123,29 +123,3 @@ class LianaAdapter:
         
         logger.info(f"Generated {len(self.data)} interaction edges.")
 
-
-def main():
-    # 1. Define file paths
-    human_path = "liana_humanconsensus_db.parquet"
-    mouse_path = "liana_mouseconsensus_db.parquet"
-
-    # 2. Instantiate Adapter
-    adapter = LianaAdapter(human_path, mouse_path)
-
-    # 3. Instantiate BioCypher Driver
-    # This reads the schema_config.yaml and biocypher_config.yaml automatically
-    driver = biocypher.BioCypher()
-
-    # 4. Run the driver with the adapter generators
-    driver.write_nodes(adapter.get_nodes())
-    driver.write_edges(adapter.get_edges())
-    driver.write_import_call()
-
-    # 5. Output Summary
-    logger.info(
-        "Import complete. Check the 'biocypher-out' directory for CSVs and import scripts."
-    )
-
-
-if __name__ == "__main__":
-    main()
