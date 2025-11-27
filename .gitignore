@@ -132,3 +132,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .idea
+
+# data files
+template_package/data/

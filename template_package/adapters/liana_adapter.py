@@ -11,7 +11,7 @@ class LianaAdapter:
     def _load_data(self):
         """
         Loads and merges the mouse and human parquet files.
-        The parquet files are expected to have columns: 'ligand', 'receptor', 'species'
+        The parquet files are expected to have columns: 'source', 'target', 'species'
         """
         logger.info("Loading Parquet files...")
 
@@ -35,7 +35,7 @@ class LianaAdapter:
         full_df = pd.concat([df_human, df_mouse], ignore_index=True)
 
         # Validate required columns exist
-        required_cols = ['ligand', 'receptor', 'species']
+        required_cols = ['source', 'target', 'species']
         missing_cols = [col for col in required_cols if col not in full_df.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}. Found columns: {full_df.columns.tolist()}")
@@ -51,39 +51,38 @@ class LianaAdapter:
         Format: (id, label, properties)
         
         Each unique protein (from ligand or receptor columns) becomes a node.
-        If an entry contains an underscore (e.g. "EGFR_ERBB2") it is treated as a Complex.
+        If an entry starts with "COMPLEX:" (e.g. "COMPLEX:P04626_P21860") it is treated as a QuaternaryStructure.
+        No species in nodes -> species is stored as a property in edges.
         """
         logger.info("Generating Nodes...")
 
-        # Map id -> {"species": species, "label": "Protein"|"MacromolecularComplex"}
+        # Map id -> {"species": species, "label": "Protein"|"QuaternaryStructure"}
         proteins = {}
 
         for _, row in self.data.iterrows():
-            for col in ("ligand", "receptor"):
+            for col in ("source", "target"):
                 pid = row[col]
-                species = row["species"]
 
                 if pd.isna(pid):
                     continue
 
                 pid_str = str(pid)
-                label = "MacromolecularComplex" if "_" in pid_str else "Protein"
+
+                if pid_str.startswith("COMPLEX:") or "_" in pid_str:
+                    label = "QuaternaryStructure"
+                    pid_str = pid_str.replace("COMPLEX:", "")
+                else:
+                    label = "Protein"
 
                 if pid_str not in proteins:
-                    proteins[pid_str] = {"species": species, "label": label}
-                # keep first-seen species; log if different
-                elif proteins[pid_str]["species"] != species:
-                    logger.debug(
-                        f"Species mismatch for {pid_str}: keeping {proteins[pid_str]['species']} "
-                        f"over new {species}"
-                    )
+                    proteins[pid_str] = {"label": label}
 
         # Yield nodes
         for protein_id, meta in proteins.items():
             yield (
                 protein_id,
                 meta["label"],
-                {"species": meta["species"]}
+                {}
             )
 
         logger.info(f"Generated {len(proteins)} unique protein/complex nodes.")
@@ -97,21 +96,21 @@ class LianaAdapter:
         """
         logger.info("Generating Edges...")
 
-        for idx, row in self.data.iterrows():
-            ligand = row["ligand"]
-            receptor = row["receptor"]
+        for _, row in self.data.iterrows():
+            ligand = row["source"]
+            receptor = row["target"]
             species = row["species"]
+
+            if ligand.startswith("COMPLEX:") or "_" in ligand:
+                ligand = ligand.replace("COMPLEX:", "")
+            if receptor.startswith("COMPLEX:") or "_" in receptor:
+                receptor = receptor.replace("COMPLEX:", "")
             
             # Create a unique ID for the interaction
-            interaction_id = f"{ligand}_{receptor}_{species}_{idx}"
+            interaction_id = f"{ligand}-{receptor}-{species}"
 
             # Additional properties beyond species can be added here
             properties = {"species": species}
-            
-            # Add any other columns from the dataframe as properties
-            for col in self.data.columns:
-                if col not in ["ligand", "receptor", "species"]:
-                    properties[col] = row[col]
 
             yield (
                 interaction_id,

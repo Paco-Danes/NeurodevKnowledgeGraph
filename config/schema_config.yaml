@@ -4,18 +4,17 @@ protein:
   represented_as: node
   preferred_id: uniprot
   input_label: Protein
-  properties:
-    species: str
 
-macromolecular complex:
+quaternary structure:
   represented_as: node
-  input_label: MacromolecularComplex
-  properties:
-    species: str
+  input_label: QuaternaryStructure
+  is_a: macromolecular complex
 
 ligand receptor interaction:
+  is_a: pairwise molecular interaction
   represented_as: edge
   input_label: LigandReceptorInteraction
-  is_a: pairwise molecular interaction
+  source: [protein, quaternary structure]
+  target: [protein, quaternary structure]
   properties:
     species: str
