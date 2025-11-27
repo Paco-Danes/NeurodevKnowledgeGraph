@@ -1,20 +1,17 @@
-#!/bin/bash -c
-cd /usr/app/
-cp -r /src/* .
-cp config/biocypher_docker_config.yaml config/biocypher_config.yaml
-poetry install
-python3 create_knowledge_graph.py
-chmod -R 777 biocypher-log#!/bin/bash
+#!/bin/bash
 set -e  # Exit immediately if any command fails
 
 echo "--- [BUILD] Starting Build Script ---"
+
+# 1. Clean up previous runs to ensure no duplicates from previous builds (maybe unnecessary?)
+echo "--- [BUILD] Cleaning up previous outputs ---"
+rm -rf /usr/app/data/build2neo
+rm -rf /usr/app/biocypher-out
 
 # 1. Move to the application directory
 cd /usr/app/ || exit
 
 # 2. Copy source files
-# We use a loop or specific glob settings to ensure hidden files are handled if needed,
-# but to keep your exact logic, we stick to standard copy.
 echo "--- [BUILD] Copying source files from /src/ ---"
 cp -r /src/* .
 
