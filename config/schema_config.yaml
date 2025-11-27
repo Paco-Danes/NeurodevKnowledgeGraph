@@ -14,7 +14,5 @@ ligand receptor interaction:
   is_a: pairwise molecular interaction
   represented_as: edge
   input_label: LigandReceptorInteraction
-  source: [protein, quaternary structure]
-  target: [protein, quaternary structure]
   properties:
     species: str

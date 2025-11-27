@@ -113,7 +113,7 @@ class LianaAdapter:
             properties = {"species": species}
 
             yield (
-                interaction_id,
+                interaction_id, # testing
                 ligand,      # Source (ligand)
                 receptor,    # Target (receptor)
                 "LigandReceptorInteraction",
