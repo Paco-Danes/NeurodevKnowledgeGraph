@@ -30,7 +30,7 @@ services:
         condition: service_completed_successfully
 
   deploy:
-    image: neo4j:4.4-enterprise
+    image: neo4j:4.4.11-enterprise-gds
     container_name: deploy
     volumes:
       - biocypher_neo4j_volume:/data
@@ -38,6 +38,7 @@ services:
       NEO4J_dbms_security_auth__enabled: "false"
       NEO4J_dbms_databases_default__to__read__only: "false"
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
+      NEO4J_dbms_security_procedures_unrestricted: "gds.*"
     ports:
       - "127.0.0.1:7474:7474"
       - "127.0.0.1:7687:7687"
