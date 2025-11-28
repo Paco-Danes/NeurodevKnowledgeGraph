@@ -15,12 +15,20 @@
     docker logs import
     docker logs deploy
     ```
-- To kill all containers, do one of:
+- To stop running containers ('deploy'):
+    ```bash
+    docker compose stop
+    ```
+- To restart the 'deploy' container:
+    ```bash
+    docker compose start deploy
+    ```
+- To stop and REMOVE all containers (you need to re-run the first command afterwards), do one of:
     ```bash
     docker compose down # simply stops 'deploy'
     docker compose down -v # also remove/reset volumes
     ```
-    remove the volumes when you modified the adapters and will have different data in output, just to be sure nothing old remains.
+    remove the volumes when you modified the adapters and will have different data in output, just to be sure nothing old remains (maybe unnecessary we need to test this).
 - If needed, check for running and stopped containers or images
     ```bash
     docker ps -a # visualize all containers

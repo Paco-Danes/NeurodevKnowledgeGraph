@@ -6,9 +6,9 @@ protein:
   input_label: Protein
 
 quaternary structure:
+  is_a: macromolecular complex
   represented_as: node
   input_label: QuaternaryStructure
-  is_a: macromolecular complex
 
 ligand receptor interaction:
   is_a: pairwise molecular interaction
