@@ -3,9 +3,9 @@ import biocypher
 from biocypher._logger import logger
 
 class LianaAdapter:
-    def __init__(self, human_file, mouse_file):
-        self.human_file = human_file
-        self.mouse_file = mouse_file
+    def __init__(self):
+        self.human_file = "template_package/data/liana_humanconsensus_db.parquet"
+        self.mouse_file = "template_package/data/liana_mouseconsensus_db.parquet"
         self.data = self._load_data()
 
     def _load_data(self):
@@ -112,6 +112,7 @@ class LianaAdapter:
 
             # Additional properties beyond species can be added here
             properties = {"species": species}
+            #rel_id = f'{ligand}_{receptor}_{len(species)}'  # Unique edge id
 
             yield (
                 None,        # With id = None, Biocypher dedupes based on ONLY source, target, label ! (not properties) -> keeps the first occurrence of the edge

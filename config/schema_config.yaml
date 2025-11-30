@@ -15,4 +15,4 @@ ligand receptor interaction:
   represented_as: edge
   input_label: LigandReceptorInteraction
   properties:
-    species: str
+    species: str[]
