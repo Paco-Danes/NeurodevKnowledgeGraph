@@ -65,8 +65,6 @@ ligand receptor interaction:
   is_a: pairwise molecular interaction
   represented_as: edge                      # edge in the final graph. Adapter must yield source and target node ids in specific order
   input_label: LigandReceptorInteraction
-  source: [protein, quaternary structure]   # OPTIONALLY specify source and target entites of the rel. Single (source: protein) or list.
-  target: [protein, quaternary structure]
   properties:                              
     species: str[]                          # can be arrays e.g str[], int[], float[], bool[], string[] etc
 
@@ -78,6 +76,5 @@ protein isoform:
   preferred_id: uniprot
   input_label: uniprot_isoform
 ```
-The 'source:' and 'target:' properties are optional and i'm not sure about their goal -> I don't know if it raises an error/warning in case your adapter yield mismatches, but still seems good to have for readability.
 
 ### Adapters
