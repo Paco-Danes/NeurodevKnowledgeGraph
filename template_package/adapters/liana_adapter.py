@@ -61,7 +61,7 @@ class LianaAdapter:
         """
         logger.info("Generating Nodes...")
 
-        # Map id -> {"species": species, "label": "Protein"|"QuaternaryStructure"}
+        # Map id -> {"species": species, "label": "Gene"|"QuaternaryStructure"}
         node_to_label = {}
 
         for _, row in self.data.iterrows():
@@ -77,7 +77,7 @@ class LianaAdapter:
                     label = "QuaternaryStructure"
                     pid_str = pid_str.replace("COMPLEX:", "")
                 else:
-                    label = "Protein"
+                    label = "Gene"
 
                 if pid_str not in node_to_label:
                     node_to_label[pid_str] = label
@@ -115,8 +115,10 @@ class LianaAdapter:
             #rel_id = f'{ligand}_{receptor}_{len(species)}'  # Unique edge id
 
             yield (
-                None,        # With id = None, Biocypher dedupes based on ONLY source, target, label ! (not properties) -> keeps the first occurrence of the edge
+                # With id = None, Biocypher dedupes based on ONLY source, target, label ! (not properties) -> keeps the first occurrence of the edge.  
+                # Okay here since we merged same source-target pair with different species into one with a list of species.
                 ligand,      # Source (ligand)
+                None,        
                 receptor,    # Target (receptor)
                 "LigandReceptorInteraction",
                 properties

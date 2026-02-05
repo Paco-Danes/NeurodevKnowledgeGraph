@@ -1,9 +1,9 @@
 # add your desired knowledge graph components here
 
-protein:
+gene:
   represented_as: node
   preferred_id: uniprot
-  input_label: Protein
+  input_label: Gene
 
 quaternary structure:
   is_a: macromolecular complex
