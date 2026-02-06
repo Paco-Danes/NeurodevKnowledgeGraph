@@ -1,11 +1,13 @@
 ## REQUIREMENTS
+
 - 💻 OS: Any (linux-based prefered)
 - 🐳 Docker: `docker --version` should not give errors.
 - 📦 Poetry: in ubuntu i just did `sudo apt install python3-poetry`
 - 🐍 Python + `pip install biocypher`: only if you want local testings before running the dockers
 
 ## DOCKER
-- Run the pipeline. This will pull images (first time), create containers 'build' (runs create_knowledge_graph.py), 'import' (to neo4j), 'deploy' (serve) + a volume and run them sequentially. Only 'deploy' remains up and running.
+
+- This will pull images (first time), create containers 'build' (runs create_knowledge_graph.py), 'import' (to neo4j), 'deploy' (serve) + a volume and run them sequentially. Only 'deploy' remains up and running. To run the pipeline:
     ```bash
     docker compose up -d
     ```
@@ -36,6 +38,7 @@
 - If 'deploy' is running, neo4j is serving at http://localhost:7474/browser/
 
 ## Dependencies
+
 - If you are using a new python package, add to poetry and rerun the docker pipeline:
     ```bash
     poetry add <package_name> # e.g 'poetry add pyarrow' for reading parquet files with pandas
@@ -43,8 +46,9 @@
     ```
 
 ## Biocypher documentation
+
 Click here to [go to Quickstart page](https://biocypher.org/BioCypher/learn/quickstart/)
-Biocypher helps connecting ontology(ies) to the nodes of the graph. Click here for the [nodes default Ontology](https://biolink.github.io/biolink-model/categories.html) and for the [relationships Ontology](https://biolink.github.io/biolink-model/associations.html). You must use EXACT names from the base ontology BUT converted in 'sentence case' in the schema config (onotlogy uses "PascalCase"). Both nodes and edges can have properties. The following is an example of a schema configuration:
+Biocypher helps connecting ontology(ies) to the nodes of the graph. Click here for the BioLink [nodes default Ontology](https://biolink.github.io/biolink-model/categories.html) and for the [relationships Ontology](https://biolink.github.io/biolink-model/associations.html). You must use EXACT names from the base ontology BUT converted in 'sentence case' in the schema config (ontology uses "PascalCase"). Both nodes and edges can have properties. The following is an example of a schema configuration:
 ### schema_config.yaml specifications
 Here the [schema configuration reference](https://biocypher.org/BioCypher/reference/schema-config/) with all available fields (more than the ones below). An example:
 ```yaml
@@ -78,6 +82,7 @@ gene isoform:
 ```
 
 ### Adapters
+
 It's a python class and the core of the database-to-graph mechanism, it loads, preprocesses and outputs data.
 It must implement two functions that produces ORDERED tuples: 
 * Node generator -> yield a 3-tuple: unique entity id (namespace is preferred_id in the schema), the input_label (matching exactly the schema_config.yaml) and a property dictionary. Exact order to communicate with biocypher: (id, label, props)
@@ -96,7 +101,7 @@ from biocypher._logger import logger
 class LianaAdapter:
     def __init__(self):
         self.human_file = "template_package/data/liana_humanconsensus_db.parquet"
-        self.mouse_file = "template_package/data/liana_mouseconsensus_db.parquet"
+        self.mouse_file = "template_package/data/liana_mouseconsensus_db.parquet" # this source already uses human id (ortholog) for mouse genes
         self.data = self._load_data()
 
     def _load_data(self):
@@ -216,9 +221,9 @@ class LianaAdapter:
         logger.info(f"Generated {len(self.data)} interaction edges.")
 ```
 
-### create_knowledge_graph.py (workspace top level file)
+### create_knowledge_graph.py
 
-Main file that runs and connects biocypher with the adapters. Biocypher pkg handles schema connection, deduplication, outputs etc. Example:
+Main file (at workspace top level) that runs and connects biocypher with the adapters. Biocypher pkg handles schema connection, deduplication, outputs etc. Example:
 
 ```python
 import biocypher
@@ -246,3 +251,63 @@ logger.info(
 )
 ```
 
+## Graph Philosophy: Data Integration Rules
+
+The following structural decisions are strict requirements for the data integration process (adapters and schema):
+
+**Unified "Gene" Entity**
+
+* Genes and their corresponding proteins are merged into a single entity class labeled **"Gene"**. This node represents the abstract concept of the biological unit (the gene and its gene product).
+* The `preferred_id` for this class is **uniprot**. We prioritize UniProt over HGNC or similar because it provides the most comprehensive and cross-species coverage.
+
+* No "Encoded By" Edges: Since the gene and protein are collapsed into the same node, there must be no edges representing the central dogma (e.g., `encodes`, `is_translated_to`) between a gene and itself.
+
+* The biological nature of the node (whether it acts as DNA or Protein) is determined strictly by its **relationships (edges)**. Users will interpret the node based on the interaction context.
+    * *Example:* `(Gene A)-[interacts_with]->(Gene B)` implies that Protein A physically interacts with Protein B.
+    * *Example:* `(Gene X)-[regulates_expression_of]->(Gene A)` implies that Protein X (e.g transcription factor) binds to the DNA promoter region of Gene A.
+
+Here is a rewritten version of your **Human-Centered approach**. I have structured it to separate the *data filtering rules* from the *mapping logic* and the *schema implementation*.
+
+---
+
+### Human-Centric Data Strategy
+
+We prioritize a human-centric graph structure. Mouse data is projected onto human nodes via orthology mapping, other species are discarded.
+
+* **Allowed Species:** *Homo sapiens* and *Mus musculus*.
+
+**Orthology Mapping & Node Identity**
+
+You have a json containg a dictionary that maps mouse uniprot ids (key) to the human ortholog id (value) here: "template_package\mappings\mouse_to_human_orthologs.json"
+Content exmaple:
+{
+  "Q8R0Y6": "O75891", # mouse gene Q8R0Y6 maps to human O75891
+  "Q05738": "Q05066",
+  ...,
+}
+
+* **Primary Goal:** Graph nodes ("Gene") should primarily represent **Human** genes (using Human UniProt IDs).
+* **Mouse Data Projection:** Relationships involving Mouse genes must be mapped to their **Human orthologs**.
+* *Standard Case:* Retrieve the Human ortholog for the Mouse gene. Set the Node ID (first tuple element) to the **Human UniProt ID**.
+* *Exception:* In the rare case where no orthology mapping exists, use the **Mouse UniProt ID** as the Node ID.
+
+**Provenance Tracking (Edge Properties)**
+To preserve the source of the data (especially when multiple mouse orthologs map to a single human gene), we utilize specific Edge properties:
+
+* **`species`**: Indicates the biological context of the evidence.
+* Values: `"Homo sapiens"` or `"Mus musculus"`.
+
+* **`original_id`**: Stores the source ID *before* mapping was applied.
+
+**4. Mapping Implementation Logic**
+When processing an input interaction:
+
+* **If input is Human:**
+* **Node ID:** Human UniProt ID.
+* **Edge `species`:** `"Homo sapiens"`. (Ignore original id, biocypher sets to None by default)
+
+* **If input is Mouse:**
+* **Node ID:** **Human** UniProt ID (the mapped target via the orthology json).
+* **Edge `species`:** `"Mus musculus"`.
+* **Edge `original_id`:** **Mouse** UniProt ID (the source ID).
+* *Note:* This preserves granularity. If 6 different mouse genes map to 1 human gene, the graph shows 6 edges connected to that human node, distinguishable by their `original_id`. If no human ortholog -> use source mouse id.

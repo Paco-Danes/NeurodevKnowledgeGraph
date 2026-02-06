@@ -5,7 +5,7 @@ from biocypher._logger import logger
 class LianaAdapter:
     def __init__(self):
         self.human_file = "template_package/data/liana_humanconsensus_db.parquet"
-        self.mouse_file = "template_package/data/liana_mouseconsensus_db.parquet"
+        self.mouse_file = "template_package/data/liana_mouseconsensus_db.parquet" # this already uses human id (ortholog) for mouse genes
         self.data = self._load_data()
 
     def _load_data(self):
@@ -113,12 +113,11 @@ class LianaAdapter:
             # Additional properties beyond species can be added here
             properties = {"species": species}
             #rel_id = f'{ligand}_{receptor}_{len(species)}'  # Unique edge id
-
+            # With id = None, Biocypher dedupes based on ONLY source, target, label ! (not properties) -> keeps the first occurrence of the edge.  
+            # Okay here since we merged same source-target pair with different species into one with a list of species.
             yield (
-                # With id = None, Biocypher dedupes based on ONLY source, target, label ! (not properties) -> keeps the first occurrence of the edge.  
-                # Okay here since we merged same source-target pair with different species into one with a list of species.
-                ligand,      # Source (ligand)
-                None,        
+                None,  
+                ligand,      # Source (ligand)      
                 receptor,    # Target (receptor)
                 "LigandReceptorInteraction",
                 properties
