@@ -36,6 +36,7 @@
     docker images # images
     ```
 - If 'deploy' is running, neo4j is serving at http://localhost:7474/browser/
+- Do not change the top level workspace directory structure. Work in "./template_package" and structure subfolders as you like for the adapters, AVOID changes in "./docker" and "./scripts", modify when needed "config/schema_config.yaml" (other configs currently work as exepected).
 
 ## Dependencies
 
@@ -85,11 +86,14 @@ gene isoform:
 
 It's a python class and the core of the database-to-graph mechanism, it loads, preprocesses and outputs data.
 It must implement two functions that produces ORDERED tuples: 
-* Node generator -> yield a 3-tuple: unique entity id (namespace is preferred_id in the schema), the input_label (matching exactly the schema_config.yaml) and a property dictionary. Exact order to communicate with biocypher: (id, label, props)
+* Node generator -> yield a 3-tuple: unique entity id (namespace is preferred_id in the schema), the input_label (matching exactly the schema_config.yaml) and a property dictionary.
 * Edge generator -> yield a 5-tuple: id (can be None), node source id, node target id, relationship label (schema input_label), property dictionary.
 Exact order: Node -> (id, label, props); Edge -> (id, source, target, label, props)
 Props can be an empty dictionary.
-In the case of properties that are not present in (some of) the source data but defined in the schema_config, BioCypher will add them to the output with a default value of None. Additional properties in the input that are not represented in the schema will be ignored (e.g adapter yields a props dictionary with key "chromosome" but no such key in the schema yaml -> ignored and no such propr for that node/edge type)
+
+In the case of properties that are not present in (some of) the source data but defined in the schema_config, BioCypher will add them to the output with a default value of None. Additional properties in the input that are not represented in the schema will be ignored (e.g adapter yields a props dictionary with key "chromosome" but no such key in the schema yaml -> ignored and no such prop for that node/edge type in the final graph)
+
+**IMPORTANT note**: biocypher internally produces some CSV files that are then imported into neo4j -> be sure to sanitize eventual quotes (should be rare) in string fields in the adapter, like some textual properties such as gene descriptions, if the data needs it (i.e. replace " with "" to avoid csv failure).
 
 Reference example:
 
@@ -209,13 +213,13 @@ class LianaAdapter:
             # Additional properties beyond species can be added here
             properties = {"species": species}
             #rel_id = f'{ligand}_{receptor}_{species}'  # Unique edge id
-
+            # With id = None, Biocypher deduplicates based on ONLY source, target, label ! (not properties) -> it keeps the first occurrence of the edge. Okay here since we merged same source-target pair with different species into one with a list of species, so 0 duplicates.
             yield (
-                None,        # With id = None, Biocypher deduplicates based on ONLY source, target, label ! (not properties) -> it keeps the first occurrence of the edge. Okay here since we merged same source-target pair with different species into one with a list of species.
-                ligand,      # Source (ligand)
-                receptor,    # Target (receptor)
-                "LigandReceptorInteraction", # Maps to schema "input_label:"
-                properties
+                None,        # id
+                ligand,      # Source (ligand), mandatory
+                receptor,    # Target (receptor), mandatory
+                "LigandReceptorInteraction", # Maps to schema "input_label:", mandatory
+                properties   # optional
             )
         
         logger.info(f"Generated {len(self.data)} interaction edges.")
@@ -311,3 +315,4 @@ When processing an input interaction:
 * **Edge `species`:** `"Mus musculus"`.
 * **Edge `original_id`:** **Mouse** UniProt ID (the source ID).
 * *Note:* This preserves granularity. If 6 different mouse genes map to 1 human gene, the graph shows 6 edges connected to that human node, distinguishable by their `original_id`. If no human ortholog -> use source mouse id.
+
